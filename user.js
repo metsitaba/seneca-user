@@ -940,7 +940,7 @@ module.exports = function user (options) {
         }
 
         seneca.act({ role: role, cmd: 'change_password', user: user,
-            password: args.password, repeat: args.repeat, salt: args.salt },
+          password: args.password, repeat: args.repeat, salt: args.salt },
           function (err, out) {
             if (err) {
               return done(err)
@@ -1030,6 +1030,9 @@ module.exports = function user (options) {
       q.email = args.orig_email || args.email
     }
 
+    delete args.orig_nick
+    delete args.orig_email
+
     user.load$(q, function (err, user) {
       if (err) return done(err, {ok: false, why: err})
       if (!user) return done(null, {ok: false, exists: false})
@@ -1041,24 +1044,26 @@ module.exports = function user (options) {
         if (pwd === pwd2 && 1 < pwd.length) {
           seneca.act('role: ' + role + ', cmd: change_password', _.extend({}, q, {password: pwd}), function (err, userpwd) {
             if (err) return done(err, {ok: false, why: err})
-            user = userpwd
+            finish()
           })
         }
         else {
           return done(null, {ok: false, why: 'user/password_mismatch'})
         }
       }
+      else {
+        finish()
+      }
 
-      delete args.orig_nick
-      delete args.orig_email
-
-      return checknick(
-        function () {
-          checkemail(
-            function () {
-              updateuser(user)
-            })
-        })
+      function finish () {
+        return checknick(
+          function () {
+            checkemail(
+              function () {
+                updateuser(user)
+              })
+          })
+      }
 
       // unsafe nick unique check, data store should also enforce !!
       function checknick (next) {
@@ -1103,8 +1108,8 @@ module.exports = function user (options) {
         user.name = args.name || pwdupdate.name
         user.email = args.email || pwdupdate.email
 
-        user.salt = pwdupdate.salt
-        user.pass = pwdupdate.pass
+        if (user.pass) delete user.pass
+        if (user.salt) delete user.salt
 
         if ('' === user.nick) {
           done(null, {ok: false, why: 'empty_nick'})
